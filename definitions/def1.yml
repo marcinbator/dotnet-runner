@@ -1,1 +1,4 @@
 name: test
+steps:
+  - id: s1
+    name: step1

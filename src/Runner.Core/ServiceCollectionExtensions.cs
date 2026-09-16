@@ -11,6 +11,7 @@ public static class ServiceCollectionExtensions
     services.Configure<JobRunnerOptions>(configuration.GetSection("Runner"));
     services.AddSingleton<IJobDefinitionLoader, JobDefinitionLoader>();
     services.AddSingleton<IJobRunner, JobRunner>();
+    services.AddSingleton<IStepRunner, StepRunner>();
 
     return services;
   }
