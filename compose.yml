@@ -1,0 +1,7 @@
+services:
+  runner:
+    build: .
+    environment:
+      - Runner__DefinitionsPath=defs
+    volumes:
+      - ./definitions:/app/defs:ro
