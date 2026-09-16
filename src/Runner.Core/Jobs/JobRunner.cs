@@ -8,9 +8,8 @@ public class JobRunner(IStepRunner runner) : IJobRunner
 
     Console.WriteLine($"Job {job.Name} started.");
 
-    while (job.Steps.Count > 0)
+    foreach (Step step in job.Steps)
     {
-      Step step = job.Steps.Dequeue();
       runner.Run(step);
     }
 

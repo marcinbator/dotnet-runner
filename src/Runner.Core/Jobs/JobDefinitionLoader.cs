@@ -17,7 +17,6 @@ public class JobDefinitionLoader(IOptions<JobRunnerOptions> options) : IJobDefin
 
     var deserializer = new DeserializerBuilder()
       .WithNamingConvention(UnderscoredNamingConvention.Instance)
-      .WithTypeConverter(new QueueYamlTypeConverter())
       .Build();
 
     string yml = File.ReadAllText(path);

@@ -17,4 +17,23 @@ public class JobDefinitionLoaderTests
 
     Assert.Equal("test", job.Name);
   }
+
+  [Fact]
+  public void Load_ReturnsJob_WithStepsFromYaml()
+  {
+    string dir = Directory.CreateTempSubdirectory().FullName;
+    File.WriteAllText(Path.Combine(dir, "job.yml"), """
+      name: test
+      steps:
+        - id: s1
+          name: step1
+        - id: s2
+          name: step2
+      """);
+    var loader = new JobDefinitionLoader(Options.Create(new JobRunnerOptions { DefinitionsPath = dir }));
+
+    Job job = loader.Load("job.yml");
+
+    Assert.Equal(["s1", "s2"], job.Steps.Select(s => s.Id));
+  }
 }
