@@ -1,7 +1,8 @@
 namespace Runner.Core.Jobs;
 
-public class Job
+public sealed class Job
 {
-  public string? Name { get; set; }
+  public string Name { get; set; } = "";
+  public string Image { get; set; } = "";
   public List<Step> Steps { get; set; } = [];
 }

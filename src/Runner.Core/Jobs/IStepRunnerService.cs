@@ -2,5 +2,5 @@ namespace Runner.Core.Jobs;
 
 public interface IStepRunnerService
 {
-  public void Run(Step step);
+  Task RunAsync(Step step, CancellationToken cancellationToken = default);
 }

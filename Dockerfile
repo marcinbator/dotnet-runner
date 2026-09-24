@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-COPY runner.slnx .
+COPY runner.slnx .editorconfig Directory.Build.props Directory.Packages.props ./
 COPY src/Runner.Core/Runner.Core.csproj src/Runner.Core/
 COPY src/Runner.Host/Runner.Host.csproj src/Runner.Host/
 RUN dotnet restore src/Runner.Host/Runner.Host.csproj

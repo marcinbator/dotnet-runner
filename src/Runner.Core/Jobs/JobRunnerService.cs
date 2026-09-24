@@ -3,22 +3,29 @@ using Runner.Core.Containers;
 
 namespace Runner.Core.Jobs;
 
-public partial class JobRunnerService(IStepRunnerService runner, IContainerRuntimeService containerRuntime, ILogger<JobRunnerService> logger) : IJobRunnerService
+public sealed partial class JobRunnerService(
+  IStepRunnerService stepRunner,
+  IContainerRuntimeService containerRuntime,
+  ILogger<JobRunnerService> logger
+) : IJobRunnerService
 {
-  public async Task Run(Job job)
+  public async Task RunAsync(Job job, CancellationToken cancellationToken = default)
   {
-    if (string.IsNullOrEmpty(job.Name)) throw new ArgumentException("Job name cannot be empty.");
-
     LogJobStarted(logger, job.Name);
 
-    Container ct = await containerRuntime.RunAsync("hello-world:latest");
+    Container container = await containerRuntime.RunAsync(job.Image, cancellationToken);
 
-    foreach (Step step in job.Steps)
+    try
     {
-      runner.Run(step);
+      foreach (Step step in job.Steps)
+      {
+        await stepRunner.RunAsync(step, cancellationToken);
+      }
     }
-
-    await containerRuntime.StopAsync(ct);
+    finally
+    {
+      await containerRuntime.StopAsync(container, CancellationToken.None);
+    }
 
     LogJobEnded(logger, job.Name);
   }

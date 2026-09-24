@@ -1,6 +1,7 @@
 ## .NET build output
 bin/
 obj/
+artifacts/
 
 ## Visual Studio
 .vs/
@@ -16,7 +17,6 @@ obj/
 packages/
 project.lock.json
 project.fragment.lock.json
-artifacts/
 
 ## Test results
 TestResults/

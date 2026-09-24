@@ -1,7 +1,3 @@
 namespace Runner.Core.Containers;
 
-public class Container
-{
-  public required string Id { get; init; }
-  public required string Name { get; init; }
-}
+public sealed record Container(string Id, string Name);

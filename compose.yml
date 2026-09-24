@@ -5,3 +5,4 @@ services:
       - Runner__DefinitionsPath=defs
     volumes:
       - ./definitions:/app/defs:ro
+      - /var/run/docker.sock:/var/run/docker.sock

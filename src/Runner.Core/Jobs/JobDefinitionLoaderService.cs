@@ -4,25 +4,28 @@ using YamlDotNet.Serialization.NamingConventions;
 
 namespace Runner.Core.Jobs;
 
-public class JobDefinitionLoaderService(IOptions<RunnerOptions> options) : IJobDefinitionLoaderService
+public sealed class JobDefinitionLoaderService(IOptions<RunnerOptions> options) : IJobDefinitionLoaderService
 {
-  private readonly string _definitionsPath = Path.IsPathRooted(options.Value.DefinitionsPath)
-    ? options.Value.DefinitionsPath
-    : Path.Combine(AppContext.BaseDirectory, options.Value.DefinitionsPath);
+  private readonly string _definitionsPath = Path.TrimEndingDirectorySeparator(
+    Path.GetFullPath(options.Value.DefinitionsPath, AppContext.BaseDirectory)
+  );
 
   private readonly IDeserializer _deserializer = new DeserializerBuilder()
-     .WithNamingConvention(UnderscoredNamingConvention.Instance)
-     .Build();
+    .WithNamingConvention(UnderscoredNamingConvention.Instance)
+    .Build();
 
   public Job Load(string fileName)
   {
-    string path = Path.Combine(_definitionsPath, fileName);
-    if (!File.Exists(path)) throw new FileNotFoundException($"Not found: {path}");
+    string path = Path.GetFullPath(fileName, _definitionsPath);
+    if (!path.StartsWith(_definitionsPath + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+      throw new ArgumentException($"Job definition '{fileName}' is outside of '{_definitionsPath}'.", nameof(fileName));
 
-    string yml = File.ReadAllText(path);
-    var job = _deserializer.Deserialize<Job>(yml);
+    Job job = _deserializer.Deserialize<Job>(File.ReadAllText(path));
 
-    if (string.IsNullOrEmpty(job.Name)) throw new ArgumentException("Job name cannot be empty.");
+    if (string.IsNullOrWhiteSpace(job.Name))
+      throw new InvalidDataException($"Job definition '{fileName}': name is required.");
+    if (string.IsNullOrWhiteSpace(job.Image))
+      throw new InvalidDataException($"Job definition '{fileName}': image is required.");
 
     return job;
   }
