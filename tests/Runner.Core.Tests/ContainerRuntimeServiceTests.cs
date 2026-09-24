@@ -1,3 +1,4 @@
+using Docker.DotNet;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Runner.Core.Containers;
@@ -56,7 +57,7 @@ public sealed class ContainerRuntimeServiceTests : IDisposable
   [DockerFact]
   public async Task RunAsync_Throws_WhenImageCannotBePulled()
   {
-    await Assert.ThrowsAsync<ContainerRuntimeException>(() =>
+    await Assert.ThrowsAnyAsync<DockerApiException>(() =>
       _runtime.RunAsync($"runner-tests/missing-{Guid.NewGuid():N}:1")
     );
   }

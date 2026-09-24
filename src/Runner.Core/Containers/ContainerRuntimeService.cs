@@ -1,7 +1,5 @@
-using System.Net;
-using System.Net.Http.Json;
-using System.Net.Sockets;
-using System.Text.Json;
+using Docker.DotNet;
+using Docker.DotNet.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -12,58 +10,56 @@ public sealed partial class ContainerRuntimeService(
   ILogger<ContainerRuntimeService> logger
 ) : IContainerRuntimeService, IDisposable
 {
-  private readonly HttpClient _client = new(
-    new SocketsHttpHandler
-    {
-      ConnectCallback = async (_, cancellationToken) =>
-      {
-        var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
-        await socket.ConnectAsync(new UnixDomainSocketEndPoint(options.Value.DockerSocket), cancellationToken);
-        return new NetworkStream(socket, ownsSocket: true);
-      },
-    }
-  )
-  {
-    BaseAddress = new Uri("http://docker/"),
-  };
+  private readonly DockerClient _client = new DockerClientBuilder()
+    .WithEndpoint(new Uri($"unix://{options.Value.DockerSocket}"))
+    .Build();
 
   public async Task<Container> RunAsync(string image, CancellationToken cancellationToken = default)
   {
+    await EnsureImageAsync(image, cancellationToken);
+
     string name = $"runner-{Guid.NewGuid():N}";
+    CreateContainerResponse created = await _client.Containers.CreateContainerAsync(
+      new CreateContainerParameters
+      {
+        Image = image,
+        Name = name,
+        Entrypoint = ["tail", "-f", "/dev/null"],
+        HostConfig = new HostConfig { AutoRemove = true, Init = true },
+      },
+      cancellationToken
+    );
 
-    using HttpResponseMessage created = await CreateAsync(image, name, cancellationToken);
-    await ThrowIfFailedAsync(created, cancellationToken);
-    DockerMessage? message = await created.Content.ReadFromJsonAsync<DockerMessage>(cancellationToken);
-    string id = message?.Id ?? throw new ContainerRuntimeException($"Docker returned no id for container '{name}'.");
-
-    using HttpResponseMessage started = await _client.PostAsync($"containers/{id}/start", null, cancellationToken);
-    if (!started.IsSuccessStatusCode)
+    try
     {
-      await RemoveAsync(id);
-      await ThrowIfFailedAsync(started, cancellationToken);
+      await _client.Containers.StartContainerAsync(created.ID, new ContainerStartParameters(), cancellationToken);
+    }
+    catch
+    {
+      await _client.Containers.RemoveContainerAsync(
+        created.ID,
+        new ContainerRemoveParameters { Force = true },
+        CancellationToken.None
+      );
+      throw;
     }
 
     LogContainerStarted(logger, name);
 
-    return new Container(id, name);
+    return new Container(created.ID, name);
   }
 
   public async Task<bool> StopAsync(Container container, CancellationToken cancellationToken = default)
   {
-    using HttpResponseMessage response = await _client.PostAsync(
-      $"containers/{container.Id}/stop",
-      null,
-      cancellationToken
-    );
-
-    if (response.StatusCode == HttpStatusCode.NotFound)
+    try
+    {
+      await _client.Containers.StopContainerAsync(container.Id, new ContainerStopParameters(), cancellationToken);
+    }
+    catch (DockerContainerNotFoundException)
     {
       LogContainerNotFound(logger, container.Name);
       return false;
     }
-
-    if (response.StatusCode != HttpStatusCode.NotModified)
-      await ThrowIfFailedAsync(response, cancellationToken);
 
     LogContainerStopped(logger, container.Name);
 
@@ -74,65 +70,21 @@ public sealed partial class ContainerRuntimeService(
 
   //
 
-  private async Task<HttpResponseMessage> CreateAsync(string image, string name, CancellationToken cancellationToken)
-  {
-    string uri = $"containers/create?name={name}";
-    var body = new
-    {
-      Image = image,
-      Entrypoint = new[] { "tail", "-f", "/dev/null" },
-      HostConfig = new { AutoRemove = true, Init = true },
-    };
-
-    HttpResponseMessage response = await _client.PostAsJsonAsync(uri, body, cancellationToken);
-    if (response.StatusCode != HttpStatusCode.NotFound)
-      return response;
-
-    response.Dispose();
-    await PullAsync(image, cancellationToken);
-    return await _client.PostAsJsonAsync(uri, body, cancellationToken);
-  }
-
-  private async Task PullAsync(string image, CancellationToken cancellationToken)
-  {
-    bool hasTag = image.Contains('@') || image[(image.LastIndexOf('/') + 1)..].Contains(':');
-    string uri = $"images/create?fromImage={Uri.EscapeDataString(image)}" + (hasTag ? "" : "&tag=latest");
-
-    using HttpResponseMessage response = await _client.PostAsync(uri, null, cancellationToken);
-    await ThrowIfFailedAsync(response, cancellationToken);
-
-    string lastLine = (await response.Content.ReadAsStringAsync(cancellationToken)).TrimEnd().Split('\n')[^1];
-    if (ParseMessage(lastLine)?.Error is { } error)
-      throw new ContainerRuntimeException($"Failed to pull image '{image}': {error}");
-  }
-
-  private async Task RemoveAsync(string id)
-  {
-    using HttpResponseMessage _ = await _client.DeleteAsync($"containers/{id}?force=true");
-  }
-
-  private static async Task ThrowIfFailedAsync(HttpResponseMessage response, CancellationToken cancellationToken)
-  {
-    if (response.IsSuccessStatusCode)
-      return;
-
-    string body = await response.Content.ReadAsStringAsync(cancellationToken);
-    string reason = ParseMessage(body)?.Message ?? body;
-    throw new ContainerRuntimeException(
-      $"Docker API error ({(int)response.StatusCode}): {reason}",
-      response.StatusCode
-    );
-  }
-
-  private static DockerMessage? ParseMessage(string json)
+  private async Task EnsureImageAsync(string image, CancellationToken cancellationToken)
   {
     try
     {
-      return JsonSerializer.Deserialize<DockerMessage>(json, JsonSerializerOptions.Web);
+      await _client.Images.InspectImageAsync(image, cancellationToken);
     }
-    catch (JsonException)
+    catch (DockerImageNotFoundException)
     {
-      return null;
+      bool hasTag = image.Contains('@') || image[(image.LastIndexOf('/') + 1)..].Contains(':');
+      await _client.Images.CreateImageAsync(
+        new ImagesCreateParameters { FromImage = image, Tag = hasTag ? null : "latest" },
+        null,
+        new Progress<JSONMessage>(),
+        cancellationToken
+      );
     }
   }
 
@@ -146,8 +98,4 @@ public sealed partial class ContainerRuntimeService(
 
   [LoggerMessage(Level = LogLevel.Warning, Message = "Container {ContainerName} was already gone when stopping.")]
   private static partial void LogContainerNotFound(ILogger logger, string containerName);
-
-  //
-
-  private sealed record DockerMessage(string? Id, string? Message, string? Error);
 }
