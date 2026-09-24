@@ -11,7 +11,7 @@ public class JobDefinitionLoaderTests
   {
     string dir = Directory.CreateTempSubdirectory().FullName;
     File.WriteAllText(Path.Combine(dir, "job.yml"), "name: test");
-    var loader = new JobDefinitionLoader(Options.Create(new JobRunnerOptions { DefinitionsPath = dir }));
+    var loader = new JobDefinitionLoaderService(Options.Create(new RunnerOptions { DefinitionsPath = dir }));
 
     Job job = loader.Load("job.yml");
 
@@ -30,7 +30,7 @@ public class JobDefinitionLoaderTests
         - id: s2
           name: step2
       """);
-    var loader = new JobDefinitionLoader(Options.Create(new JobRunnerOptions { DefinitionsPath = dir }));
+    var loader = new JobDefinitionLoaderService(Options.Create(new RunnerOptions { DefinitionsPath = dir }));
 
     Job job = loader.Load("job.yml");
 

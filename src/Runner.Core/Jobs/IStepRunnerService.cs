@@ -1,6 +1,6 @@
 namespace Runner.Core.Jobs;
 
-public interface IStepRunner
+public interface IStepRunnerService
 {
   public void Run(Step step);
 }

@@ -1,6 +1,6 @@
 namespace Runner.Core.Jobs;
 
-public interface IJobDefinitionLoader
+public interface IJobDefinitionLoaderService
 {
   Job Load(string fileName);
 }

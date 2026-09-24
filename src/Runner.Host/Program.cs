@@ -8,8 +8,8 @@ builder.Services.AddRunnerCore(builder.Configuration);
 
 using var host = builder.Build();
 
-var loader = host.Services.GetRequiredService<IJobDefinitionLoader>();
-var runner = host.Services.GetRequiredService<IJobRunner>();
+var loader = host.Services.GetRequiredService<IJobDefinitionLoaderService>();
+var runner = host.Services.GetRequiredService<IJobRunnerService>();
 
 Job job = loader.Load("def1.yml");
-runner.Run(job);
+await runner.Run(job);
