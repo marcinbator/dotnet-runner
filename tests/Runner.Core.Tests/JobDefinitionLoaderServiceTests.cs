@@ -39,12 +39,15 @@ public sealed class JobDefinitionLoaderServiceTests : IDisposable
       steps:
         - id: s1
           name: step1
+          run: echo one
         - id: s2
           name: step2
+          run: echo two
       """
     );
 
     Assert.Equal(["s1", "s2"], job.Steps.Select(s => s.Id));
+    Assert.Equal(["echo one", "echo two"], job.Steps.Select(s => s.Run));
   }
 
   [Fact]
@@ -57,6 +60,21 @@ public sealed class JobDefinitionLoaderServiceTests : IDisposable
   public void Load_Throws_WhenImageIsMissing()
   {
     Assert.Throws<InvalidDataException>(() => Load("name: test"));
+  }
+
+  [Fact]
+  public void Load_Throws_WhenStepHasNoRunCommand()
+  {
+    Assert.Throws<InvalidDataException>(() =>
+      Load(
+        """
+        name: test
+        image: alpine:3.20
+        steps:
+          - id: s1
+        """
+      )
+    );
   }
 
   [Fact]

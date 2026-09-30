@@ -15,7 +15,7 @@ public sealed class JobRunnerServiceTests
 
     await runner.RunAsync(CreateJob("s1", "s2"));
 
-    Assert.Equal(["run alpine", "s1", "s2", "stop ct1"], _events);
+    Assert.Equal(["run alpine", "s1 in ct1", "s2 in ct1", "stop ct1"], _events);
   }
 
   [Fact]
@@ -25,7 +25,7 @@ public sealed class JobRunnerServiceTests
 
     await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunAsync(CreateJob("s1", "s2")));
 
-    Assert.Equal(["run alpine", "s1", "stop ct1"], _events);
+    Assert.Equal(["run alpine", "s1 in ct1", "stop ct1"], _events);
   }
 
   //
@@ -42,30 +42,15 @@ public sealed class JobRunnerServiceTests
     {
       Name = "test",
       Image = "alpine",
-      Steps = [.. stepIds.Select(id => new Step { Id = id })],
+      Steps = [.. stepIds.Select(id => new Step { Id = id, Run = "true" })],
     };
 
   private sealed class RecordingStepRunner(List<string> events, string? failingStepId) : IStepRunnerService
   {
-    public Task RunAsync(Step step, CancellationToken cancellationToken = default)
+    public Task RunAsync(Step step, Container container, CancellationToken cancellationToken = default)
     {
-      events.Add(step.Id!);
+      events.Add($"{step.Id} in {container.Id}");
       return step.Id == failingStepId ? Task.FromException(new InvalidOperationException()) : Task.CompletedTask;
-    }
-  }
-
-  private sealed class RecordingContainerRuntime(List<string> events) : IContainerRuntimeService
-  {
-    public Task<Container> RunAsync(string image, CancellationToken cancellationToken = default)
-    {
-      events.Add($"run {image}");
-      return Task.FromResult(new Container("ct1", "ct1"));
-    }
-
-    public Task<bool> StopAsync(Container container, CancellationToken cancellationToken = default)
-    {
-      events.Add($"stop {container.Id}");
-      return Task.FromResult(true);
     }
   }
 }

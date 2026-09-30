@@ -55,6 +55,23 @@ public sealed class ContainerRuntimeServiceTests : IDisposable
   }
 
   [DockerFact]
+  public async Task RunCommandAsync_ReturnsExitCodeAndSeparateOutputs()
+  {
+    Container container = await _runtime.RunAsync(Image);
+
+    try
+    {
+      CommandResult result = await _runtime.RunCommandAsync(container, "echo out; echo err >&2; exit 3");
+
+      Assert.Equal(new CommandResult(3, "out\n", "err\n"), result);
+    }
+    finally
+    {
+      await _runtime.StopAsync(container);
+    }
+  }
+
+  [DockerFact]
   public async Task RunAsync_Throws_WhenImageCannotBePulled()
   {
     await Assert.ThrowsAnyAsync<DockerApiException>(() =>

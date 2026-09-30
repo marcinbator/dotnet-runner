@@ -19,7 +19,7 @@ public sealed partial class JobRunnerService(
     {
       foreach (Step step in job.Steps)
       {
-        await stepRunner.RunAsync(step, cancellationToken);
+        await stepRunner.RunAsync(step, container, cancellationToken);
       }
     }
     finally

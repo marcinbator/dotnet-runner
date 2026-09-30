@@ -4,4 +4,5 @@ public sealed class Step
 {
   public string? Id { get; set; }
   public string? Name { get; set; }
+  public string Run { get; set; } = "";
 }

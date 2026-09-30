@@ -11,7 +11,7 @@ public sealed class JobDefinitionLoaderService(IOptions<RunnerOptions> options) 
   );
 
   private readonly IDeserializer _deserializer = new DeserializerBuilder()
-    .WithNamingConvention(UnderscoredNamingConvention.Instance)
+    .WithNamingConvention(HyphenatedNamingConvention.Instance)
     .Build();
 
   public Job Load(string fileName)
@@ -26,6 +26,12 @@ public sealed class JobDefinitionLoaderService(IOptions<RunnerOptions> options) 
       throw new InvalidDataException($"Job definition '{fileName}': name is required.");
     if (string.IsNullOrWhiteSpace(job.Image))
       throw new InvalidDataException($"Job definition '{fileName}': image is required.");
+
+    foreach (Step step in job.Steps)
+    {
+      if (string.IsNullOrWhiteSpace(step.Run))
+        throw new InvalidDataException($"Job definition '{fileName}': step '{step.Id}' has no run command.");
+    }
 
     return job;
   }

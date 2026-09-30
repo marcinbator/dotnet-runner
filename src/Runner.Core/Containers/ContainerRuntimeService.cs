@@ -66,9 +66,50 @@ public sealed partial class ContainerRuntimeService(
     return true;
   }
 
+  public async Task<CommandResult> RunCommandAsync(
+    Container container,
+    string command,
+    CancellationToken cancellationToken = default
+  )
+  {
+    ContainerExecCreateResponse exec = await _client.Exec.CreateContainerExecAsync(
+      container.Id,
+      new ContainerExecCreateParameters
+      {
+        Cmd = ["/bin/sh", "-c", command],
+        AttachStdout = true,
+        AttachStderr = true,
+      },
+      cancellationToken
+    );
+
+    using MultiplexedStream stream = await _client.Exec.StartContainerExecAsync(
+      exec.ID,
+      new ContainerExecStartParameters { Detach = false, TTY = false },
+      cancellationToken
+    );
+
+    (string stdout, string stderr) = await stream.ReadOutputToEndAsync(cancellationToken);
+    long exitCode = await WaitForExitCodeAsync(exec.ID, cancellationToken);
+
+    return new CommandResult(exitCode, stdout, stderr);
+  }
+
   public void Dispose() => _client.Dispose();
 
   //
+
+  private async Task<long> WaitForExitCodeAsync(string execId, CancellationToken cancellationToken)
+  {
+    while (true)
+    {
+      ContainerExecInspectResponse inspect = await _client.Exec.InspectContainerExecAsync(execId, cancellationToken);
+      if (!inspect.Running && inspect.ExitCode is { } exitCode)
+        return exitCode;
+
+      await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
+    }
+  }
 
   private async Task EnsureImageAsync(string image, CancellationToken cancellationToken)
   {
