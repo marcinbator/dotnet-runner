@@ -27,8 +27,12 @@ public sealed class JobDefinitionLoaderService(IOptions<RunnerOptions> options) 
     if (string.IsNullOrWhiteSpace(job.Image))
       throw new InvalidDataException($"Job definition '{fileName}': image is required.");
 
+    int stepIndex = 0;
     foreach (Step step in job.Steps)
     {
+      step.Number = stepIndex;
+      stepIndex++;
+
       if (string.IsNullOrWhiteSpace(step.Run))
         throw new InvalidDataException($"Job definition '{fileName}': step '{step.Id}' has no run command.");
     }

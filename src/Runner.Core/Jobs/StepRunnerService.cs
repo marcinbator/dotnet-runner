@@ -8,21 +8,28 @@ public sealed partial class StepRunnerService(
   ILogger<StepRunnerService> logger
 ) : IStepRunnerService
 {
-  public async Task RunAsync(Step step, Container container, CancellationToken cancellationToken = default)
+  public async Task RunAsync(
+    Step step,
+    Container container,
+    string jobIdentifier,
+    CancellationToken cancellationToken = default
+  )
   {
-    LogStepStarted(logger, step.Name, step.Id);
+    string stepIdentifier = step.Id ?? step.Name ?? step.Number.ToString();
+
+    LogStepStarted(logger, jobIdentifier, stepIdentifier);
 
     CommandResult result = await containerRuntime.RunCommandAsync(container, step.Run, cancellationToken);
 
     if (logger.IsEnabled(LogLevel.Information))
     {
       foreach (string line in SplitLines(result.Stdout))
-        LogStepStdout(logger, step.Id, line);
+        LogStepStdout(logger, stepIdentifier, line);
     }
     if (logger.IsEnabled(LogLevel.Warning))
     {
       foreach (string line in SplitLines(result.Stderr))
-        LogStepStderr(logger, step.Id, line);
+        LogStepStderr(logger, stepIdentifier, line);
     }
 
     if (result.ExitCode != 0)
@@ -39,12 +46,12 @@ public sealed partial class StepRunnerService(
 
   //
 
-  [LoggerMessage(Level = LogLevel.Information, Message = "Step {StepName} ({StepId}) started.")]
-  private static partial void LogStepStarted(ILogger logger, string? stepName, string? stepId);
+  [LoggerMessage(Level = LogLevel.Information, Message = "[Job {JobIdentifier}] Step {StepIdentifier} started.")]
+  private static partial void LogStepStarted(ILogger logger, string jobIdentifier, string? stepIdentifier);
 
-  [LoggerMessage(Level = LogLevel.Information, Message = "[{StepId}] {StepOutput}")]
-  private static partial void LogStepStdout(ILogger logger, string? stepId, string stepOutput);
+  [LoggerMessage(Level = LogLevel.Information, Message = "[Step {StepIdentifier}] {StepOutput}")]
+  private static partial void LogStepStdout(ILogger logger, string? stepIdentifier, string stepOutput);
 
-  [LoggerMessage(Level = LogLevel.Warning, Message = "[{StepId}] {StepOutput}")]
-  private static partial void LogStepStderr(ILogger logger, string? stepId, string stepOutput);
+  [LoggerMessage(Level = LogLevel.Warning, Message = "[Step {StepIdentifier}] {StepOutput}")]
+  private static partial void LogStepStderr(ILogger logger, string? stepIdentifier, string stepOutput);
 }
